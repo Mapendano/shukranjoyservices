@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: orders
+    // Document ID: orderId (e.g., SJS001)
+    // Fields:
+    //   - status: string (required)
+    //   - location: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: chatSessions
+    // Document ID: sessionId
+    // Fields:
+    //   - userId: string
+    //   - lastMessage: string
+    //   - updatedAt: timestamp
+    //
+    // Collection: chatSessions/{sessionId}/messages
+    // Document ID: auto-generated
+    // Fields:
+    //   - text: string (required)
+    //   - isBot: boolean (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: testimonials
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required)
+    //   - location: string (optional)
+    //   - text: string (required)
+    //   - rating: number (required)
+    //   - status: string (required, 'pending' | 'approved')
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      // Pour le prototype avec code PIN, on autorise les utilisateurs authentifiés.
+      // Le tableau de bord est protégé par le code PIN côté client.
+      return isAuthenticated(); 
+    }
+
+    function isValidMessage() {
+      return request.resource.data.keys().hasAll(['text', 'isBot', 'createdAt']) &&
+             request.resource.data.text is string &&
+             request.resource.data.text.size() > 0 &&
+             request.resource.data.text.size() < 1000 &&
+             request.resource.data.isBot is bool;
+    }
+
+    function isValidTestimonial() {
+      return request.resource.data.keys().hasAll(['name', 'location', 'text', 'rating', 'status', 'createdAt']) &&
+             request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 100 &&
+             request.resource.data.location is string && request.resource.data.location.size() < 100 &&
+             request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 2000 &&
+             request.resource.data.rating is number && request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+             request.resource.data.status == 'pending';
+    }
+
+    // Orders: Anyone authenticated can read an order to track it.
+    match /orders/{orderId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Chat Sessions: Users can read and write to their own session.
+    match /chatSessions/{sessionId} {
+      allow read: if isOwner(sessionId) || isAdmin();
+      allow write: if isOwner(sessionId) || isAdmin();
+    }
+
+    match /chatSessions/{sessionId}/messages/{messageId} {
+      allow read: if isOwner(sessionId) || isAdmin();
+      allow create: if (isOwner(sessionId) || isAdmin()) && isValidMessage();
+      allow update, delete: if false; // Messages are immutable
+    }
+
+    // Testimonials: Anyone can read approved testimonials. Only admins can read all, update or delete.
+    match /testimonials/{testimonialId} {
+      allow read: if (isAuthenticated() && resource.data.status == 'approved') || isAdmin();
+      allow create: if isAuthenticated() && isValidTestimonial();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

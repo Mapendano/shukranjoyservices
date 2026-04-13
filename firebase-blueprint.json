@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Represents a customer order for tracking purposes.",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "description": "The unique tracking ID (e.g., SJS001)."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the order (e.g., 'En préparation', 'En cours de livraison', 'Livrée')."
+        },
+        "location": {
+          "type": "string",
+          "description": "The delivery location of the customer."
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the order was created."
+        }
+      },
+      "required": ["orderId", "status", "createdAt"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Represents an active chat session with a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "lastMessage": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["userId", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Represents a message in the live chat.",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Anonymous session ID for the user."
+        },
+        "text": {
+          "type": "string",
+          "description": "The content of the message."
+        },
+        "isBot": {
+          "type": "boolean",
+          "description": "True if the message is from the automated bot."
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "When the message was sent."
+        }
+      },
+      "required": ["sessionId", "text", "isBot", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/Order"
+      },
+      "description": "Collection of orders for tracking."
+    },
+    "/chatSessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/ChatSession"
+      },
+      "description": "Tracks active chat sessions."
+    },
+    "/chatSessions/{sessionId}/messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/ChatMessage"
+      },
+      "description": "Collection of chat messages grouped by session."
+    }
+  }
+}
